@@ -1,0 +1,121 @@
+{
+  "id": "c1d2e3f4-0004-4004-a004-aabbcc000004",
+  "name": "LMS - 4. Weekly Analytics Report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "d4e5f6a7-0004-0004-0004-000000000001",
+      "name": "Every Monday 9:00 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://analytics-service:8003/api/analytics/dashboard/",
+        "options": {}
+      },
+      "id": "d4e5f6a7-0004-0004-0004-000000000002",
+      "name": "Fetch Dashboard Stats",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-report",
+              "name": "report",
+              "value": "=📊 LMS Weekly Report — {{ $now.toFormat('dd/MM/yyyy') }}\n\n👁  Total Views       : {{ $json.total_views }}\n📚 Total Enrollments : {{ $json.total_enrollments }}\n👤 Active Users      : {{ $json.active_users }}\n✅ Completion Rate   : {{ $json.completion_rate }}%\n\n🏆 Top Courses:\n{{ $json.popular_courses.map(c => `  - ${c.label}: ${c.value} students`).join('\\n') }}\n\n📈 Enrollment Trend (last 6 months):\n{{ $json.enrollment_trends.map(t => `  ${t.label}: ${t.value}`).join('\\n') }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-generated-at",
+              "name": "generated_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-total-views",
+              "name": "total_views",
+              "value": "={{ $json.total_views }}",
+              "type": "number"
+            },
+            {
+              "id": "assign-total-enrollments",
+              "name": "total_enrollments",
+              "value": "={{ $json.total_enrollments }}",
+              "type": "number"
+            },
+            {
+              "id": "assign-completion-rate",
+              "name": "completion_rate",
+              "value": "={{ $json.completion_rate }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d4e5f6a7-0004-0004-0004-000000000003",
+      "name": "Format Report",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://analytics-service:8003/api/analytics/events/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ event_type: 'weekly_report_generated', metadata: { generated_at: $json.generated_at, total_views: $json.total_views, total_enrollments: $json.total_enrollments, completion_rate: $json.completion_rate } }) }}",
+        "options": {}
+      },
+      "id": "d4e5f6a7-0004-0004-0004-000000000004",
+      "name": "Archive Report to Analytics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [960, 300]
+    }
+  ],
+  "connections": {
+    "Every Monday 9:00 AM": {
+      "main": [
+        [{ "node": "Fetch Dashboard Stats", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Dashboard Stats": {
+      "main": [
+        [{ "node": "Format Report", "type": "main", "index": 0 }]
+      ]
+    },
+    "Format Report": {
+      "main": [
+        [{ "node": "Archive Report to Analytics", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
